@@ -8,7 +8,35 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(ABoxLab)
 
-# Add ABox as a subdirectory to build the library
+find_package(Vulkan REQUIRED)
+find_package(glfw3 REQUIRED)
+
+include(FetchContent)
+
+FetchContent_Declare(
+  imgui
+  GIT_REPOSITORY https://github.com/ocornut/imgui.git
+  GIT_TAG v1.91.7
+)
+FetchContent_MakeAvailable(imgui)
+
+add_library(imgui
+  ${imgui_SOURCE_DIR}/imgui.cpp
+  ${imgui_SOURCE_DIR}/imgui_draw.cpp
+  ${imgui_SOURCE_DIR}/imgui_tables.cpp
+  ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+  ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+)
+target_include_directories(imgui PUBLIC
+  ${imgui_SOURCE_DIR}
+  ${imgui_SOURCE_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC
+  Vulkan::Vulkan
+  glfw
+)
+
 add_subdirectory(ABox)
 
 add_executable(ABoxLab
@@ -19,11 +47,11 @@ add_executable(ABoxLab
 
 target_compile_definitions(ABoxLab PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
 
-# Link against ABoxLib - it already provides all dependencies and includes
 target_link_libraries(
   ABoxLab
   PRIVATE
   ABoxLib
+  imgui
 )
 
 
