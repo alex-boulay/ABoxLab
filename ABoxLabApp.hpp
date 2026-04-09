@@ -7,6 +7,9 @@
 #include "graphics/ShaderHandler.hpp"
 #include "window/WindowManager.hpp"
 #include <GLFW/glfw3.h>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 
 // #include "ShaderHandler.hpp"
 /**
@@ -21,6 +24,12 @@ class ABoxLabApp {
   WindowManager wm{baseWindowDimention};
   ResourcesManager rs;
   ShaderHandler shaderHandler;
+
+  VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
+
+  void initImGui();
+  void cleanupImGui();
+  void renderFrame();
 
 public:
   ABoxLabApp();
