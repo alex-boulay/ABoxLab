@@ -66,26 +66,32 @@ void ABoxLabApp::initImGui() {
 
   ImGui_ImplVulkan_Init(&initInfo);
 
+  // Store device for cleanup (avoids accessing rs during destruction)
+  imguiDevice = device;
+
   LOG_INFO("App") << "ImGui initialized successfully";
 }
 
 void ABoxLabApp::cleanupImGui() {
-  // Make sure device is idle before cleanup
+  if (imguiDevice == VK_NULL_HANDLE) {
+    return; // Not initialized
+  }
+
+  // Wait for device to finish before cleanup
+  vkDeviceWaitIdle(imguiDevice);
+
+  // Shutdown ImGui backends first (before destroying descriptor pool)
+  ImGui_ImplVulkan_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+
+  // Destroy ImGui's descriptor pool
   if (imguiDescriptorPool != VK_NULL_HANDLE) {
-    auto *dbe = rs.getMainDevice();
-    VkDevice device = dbe->getDevice().get();
-
-    vkDeviceWaitIdle(device);
-
-    // Shutdown ImGui backends
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-
-    // Destroy ImGui's descriptor pool
-    vkDestroyDescriptorPool(device, imguiDescriptorPool, nullptr);
+    vkDestroyDescriptorPool(imguiDevice, imguiDescriptorPool, nullptr);
     imguiDescriptorPool = VK_NULL_HANDLE;
   }
+
+  imguiDevice = VK_NULL_HANDLE;
 }
 
 void ABoxLabApp::renderFrame() {
@@ -140,28 +146,14 @@ void ABoxLabApp::run() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // Example ImGui UI
-    // Keep window inside viewport
-    ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImGui::GetIO().DisplaySize);
+    // Render UI components
+    menuBar.render(wm.getWindow());
 
+    // Main content window
     ImGui::Begin("ABoxLab");
     ImGui::Text("Shader Testing Tool");
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
-    // Clamp window position to stay in viewport
-    ImVec2 windowPos = ImGui::GetWindowPos();
-    ImVec2 windowSize = ImGui::GetWindowSize();
-    ImVec2 displaySize = ImGui::GetIO().DisplaySize;
-
-    if (windowPos.x < 0) ImGui::SetWindowPos(ImVec2(0, windowPos.y));
-    if (windowPos.y < 0) ImGui::SetWindowPos(ImVec2(windowPos.x, 0));
-    if (windowPos.x + windowSize.x > displaySize.x)
-        ImGui::SetWindowPos(ImVec2(displaySize.x - windowSize.x, windowPos.y));
-    if (windowPos.y + windowSize.y > displaySize.y)
-        ImGui::SetWindowPos(ImVec2(windowPos.x, displaySize.y - windowSize.y));
-
     ImGui::End();
 
     // Render
@@ -206,7 +198,11 @@ ABoxLabApp::ABoxLabApp() {
 }
 
 ABoxLabApp::~ABoxLabApp() {
-  rs.waitIdle();
+  // Clean up ImGui first, before ABox resources are destroyed
   cleanupImGui();
-  glfwTerminate();
+
+  // NOTE: glfwTerminate() is NOT called here!
+  // The Wayland/X11 connection must remain valid while Vulkan
+  // swapchains are being destroyed (during rs destructor).
+  // GLFW will clean up automatically at process exit.
 };

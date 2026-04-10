@@ -10,6 +10,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "src/ui/MenuBar.hpp"
 
 // #include "ShaderHandler.hpp"
 /**
@@ -21,11 +22,16 @@ class ABoxLabApp {
   static constexpr VkExtent2D baseWindowDimention = {.width = 800u,
                                                      .height = 600u};
 
+  // IMPORTANT: Member order determines destruction order (reverse of declaration)
+  // wm must be destroyed LAST because rs needs the GLFW/Wayland connection
+  // to properly destroy swapchains
   WindowManager wm{baseWindowDimention};
-  ResourcesManager rs;
   ShaderHandler shaderHandler;
+  ResourcesManager rs;
 
   VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
+  VkDevice imguiDevice = VK_NULL_HANDLE;
+  MenuBar menuBar;
 
   void initImGui();
   void cleanupImGui();
