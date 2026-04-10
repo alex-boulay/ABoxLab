@@ -11,6 +11,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 #include "src/ui/MenuBar.hpp"
+#include "src/ui/FileTree.hpp"
+#include "src/project/ProjectManager.hpp"
 
 // #include "ShaderHandler.hpp"
 /**
@@ -32,10 +34,15 @@ class ABoxLabApp {
   VkDescriptorPool imguiDescriptorPool = VK_NULL_HANDLE;
   VkDevice imguiDevice = VK_NULL_HANDLE;
   MenuBar menuBar;
+  FileTree fileTree;
+  ProjectManager projectManager;
+
+  bool layoutRefreshed = false;
 
   void initImGui();
   void cleanupImGui();
   void renderFrame();
+  void triggerLayoutRefresh();
 
 public:
   ABoxLabApp();

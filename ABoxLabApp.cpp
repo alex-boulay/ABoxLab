@@ -137,9 +137,21 @@ void ABoxLabApp::renderFrame() {
   rs.endFrame(imageIndex, cmdBuffer);
 }
 
+void ABoxLabApp::triggerLayoutRefresh() {
+  int width, height;
+  glfwGetWindowSize(wm.getWindow(), &width, &height);
+  glfwSetWindowSize(wm.getWindow(), width + 1, height);
+  glfwSetWindowSize(wm.getWindow(), width, height);
+}
+
 void ABoxLabApp::run() {
   while (!wm.shouldClose()) {
     wm.pollEvents();
+
+    // Fix ImGui layout on first frame (one-shot logic)
+    if (!layoutRefreshed && (layoutRefreshed = true)) {
+      triggerLayoutRefresh();
+    }
 
     // Start ImGui frame
     ImGui_ImplVulkan_NewFrame();
@@ -148,13 +160,16 @@ void ABoxLabApp::run() {
 
     // Render UI components
     menuBar.render(wm.getWindow());
+    fileTree.render();
 
-    // Main content window
-    ImGui::Begin("ABoxLab");
-    ImGui::Text("Shader Testing Tool");
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::End();
+    // Handle keyboard shortcuts after rendering (but before ImGui::Render)
+    // This ensures shortcuts work regardless of which window has focus
+    ImGuiIO& io = ImGui::GetIO();
+    if (!io.WantCaptureKeyboard || !io.WantTextInput) {
+      if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_B, false)) {
+        fileTree.toggleOpen();
+      }
+    }
 
     // Render
     ImGui::Render();
@@ -195,6 +210,29 @@ ABoxLabApp::ABoxLabApp() {
   // Initialize ImGui
   initImGui();
   LOG_INFO("App") << "\n -- ImGui Initialized --";
+
+  // Set up menu callbacks
+  menuBar.setOnCreateProjectCallback([this](const std::string& name, const std::string& path) {
+    if (projectManager.createProject(name, path)) {
+      fileTree.setWorkspacePath(path);
+      LOG_INFO("App") << "Created project: " << name << " at " << path;
+    } else {
+      LOG_INFO("App") << "Failed to create project: " << name;
+    }
+  });
+
+  menuBar.setOnOpenProjectCallback([this](const std::string& path) {
+    if (projectManager.openProject(path)) {
+      fileTree.setWorkspacePath(projectManager.getActiveProject().path);
+      LOG_INFO("App") << "Opened project: " << projectManager.getActiveProject().name;
+    } else {
+      LOG_INFO("App") << "Failed to open project at: " << path;
+    }
+  });
+
+  menuBar.setOnToggleWorkspaceCallback([this]() {
+    fileTree.toggleOpen();
+  });
 }
 
 ABoxLabApp::~ABoxLabApp() {

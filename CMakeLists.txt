@@ -43,9 +43,20 @@ add_subdirectory(ABox)
 add_library(ui
   src/ui/MenuBar.cpp
   src/ui/MenuBar.hpp
+  src/ui/FileTree.cpp
+  src/ui/FileTree.hpp
+  src/ui/FileDialog.cpp
+  src/ui/FileDialog.hpp
 )
 target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(ui PUBLIC imgui glfw)
+
+# Project Module
+add_library(project
+  src/project/ProjectManager.cpp
+  src/project/ProjectManager.hpp
+)
+target_include_directories(project PUBLIC ${CMAKE_SOURCE_DIR})
 
 add_executable(ABoxLab
   main.cpp
@@ -66,6 +77,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
   target_compile_options(ui PRIVATE -fsanitize=address -fno-omit-frame-pointer)
   target_link_options(ui PRIVATE -fsanitize=address)
+
+  target_compile_options(project PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(project PRIVATE -fsanitize=address)
 endif()
 
 target_link_libraries(
@@ -74,6 +88,7 @@ target_link_libraries(
   ABoxLib
   imgui
   ui
+  project
 )
 
 
