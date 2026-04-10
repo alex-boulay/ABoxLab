@@ -67,11 +67,50 @@ Planned:
 
 ## Architecture
 
+### Design Philosophy
+
+ABoxLab follows the modular architecture pattern used by large open-source projects like Blender and GIMP:
+
+- **Separation of Concerns**: Each subsystem is self-contained in its own module
+- **User Workspace Independence**: User projects live anywhere on the filesystem; the app only stores references
+- **Manager Pattern**: Focused manager classes coordinate specific domains
+- **Event-Driven**: Loose coupling between components via events
+
+### Module Structure
+
+```
+ABoxLab/
+├── src/
+│   ├── ui/              # UI components (MenuBar, FileTree, CodeEditor, Viewport)
+│   ├── renderer/        # Core Vulkan rendering abstraction
+│   ├── scene/           # Scene graph and object management
+│   ├── compiler/        # Runtime shader compilation (SPIR-V, Slang, GLSL, HLSL)
+│   ├── project/         # Project management and file tracking
+│   └── main.cpp
+├── resources/           # Built-in app resources (default shaders, icons)
+└── ABox/                # Custom Vulkan library (submodule)
+```
+
+### User Data Management
+
+User projects are **not** stored within the application directory. Instead:
+
+- **Project Files**: User chooses location (e.g., `~/Documents/MyShaderProject/`)
+- **App Config**: Stored in standard OS locations:
+  - Linux: `~/.config/aboxlab/`
+  - Windows: `%APPDATA%/aboxlab/`
+  - macOS: `~/Library/Application Support/aboxlab/`
+- **Recent Projects**: Tracked via JSON file storing file paths, not copying files
+
+This mirrors how Blender, GIMP, Qt Creator, and other professional tools manage user workspaces.
+
+### Core Technologies
+
 - **ABox**: Custom Vulkan rendering library for resource management
 - **ImGui**: UI framework for interface elements
 - **GLFW**: Window and input handling
 - **Vulkan**: Graphics API
-- **Slang**: High-level shader compiler
+- **Slang**: High-level shader compiler (planned)
 
 ## Building
 
