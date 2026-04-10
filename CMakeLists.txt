@@ -39,6 +39,14 @@ target_link_libraries(imgui PUBLIC
 
 add_subdirectory(ABox)
 
+# UI Module
+add_library(ui
+  src/ui/MenuBar.cpp
+  src/ui/MenuBar.hpp
+)
+target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR})
+target_link_libraries(ui PUBLIC imgui glfw)
+
 add_executable(ABoxLab
   main.cpp
   ABoxLabApp.cpp
@@ -47,11 +55,25 @@ add_executable(ABoxLab
 
 target_compile_definitions(ABoxLab PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
 
+# Add sanitizer support for debug builds
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  # Use ASAN without leak detection (GLFW/Wayland have cleanup issues with LSAN)
+  target_compile_options(ABoxLab PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(ABoxLab PRIVATE -fsanitize=address)
+
+  target_compile_options(imgui PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(imgui PRIVATE -fsanitize=address)
+
+  target_compile_options(ui PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(ui PRIVATE -fsanitize=address)
+endif()
+
 target_link_libraries(
   ABoxLab
   PRIVATE
   ABoxLib
   imgui
+  ui
 )
 
 
