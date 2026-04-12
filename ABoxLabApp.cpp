@@ -162,6 +162,10 @@ void ABoxLabApp::run() {
     menuBar.render(wm.getWindow());
     fileTree.render();
 
+    // Calculate editor offset based on workspace state
+    float editorOffset = fileTree.isWorkspaceOpen() ? 250.0f : 30.0f;
+    codeEditor.render(editorOffset);
+
     // Handle keyboard shortcuts after rendering (but before ImGui::Render)
     // This ensures shortcuts work regardless of which window has focus
     ImGuiIO& io = ImGui::GetIO();
@@ -212,6 +216,7 @@ ABoxLabApp::ABoxLabApp() {
   LOG_INFO("App") << "\n -- ImGui Initialized --";
 
   // Set up menu callbacks
+  menuBar.setProjectManager(&projectManager);
   menuBar.setOnCreateProjectCallback([this](const std::string& name, const std::string& path) {
     if (projectManager.createProject(name, path)) {
       fileTree.setWorkspacePath(path);
@@ -232,6 +237,28 @@ ABoxLabApp::ABoxLabApp() {
 
   menuBar.setOnToggleWorkspaceCallback([this]() {
     fileTree.toggleOpen();
+  });
+
+  menuBar.setOnCreateShaderCallback([this](const std::string& name, const std::string& type) {
+    if (!projectManager.hasActiveProject()) {
+      LOG_INFO("App") << "No active project to create shader in";
+      return;
+    }
+
+    std::string extension = FileTemplates::getExtensionForShaderType(type);
+    std::string filename = name + extension;
+    std::string content = FileTemplates::getTemplateForShaderType(type);
+
+    if (projectManager.createFile(filename, content)) {
+      LOG_INFO("App") << "Created shader: " << filename;
+    } else {
+      LOG_INFO("App") << "Failed to create shader: " << filename;
+    }
+  });
+
+  fileTree.setOnFileClickedCallback([this](const std::string& filePath) {
+    codeEditor.openFile(filePath);
+    LOG_INFO("App") << "Opened file: " << filePath;
   });
 }
 

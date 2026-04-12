@@ -66,6 +66,9 @@ void FileTree::renderDirectory(const fs::path& path, int depth) {
 
       if (ImGui::IsItemClicked()) {
         selectedFile = entryPath.string();
+        if (onFileClicked) {
+          onFileClicked(selectedFile);
+        }
       }
     }
   }

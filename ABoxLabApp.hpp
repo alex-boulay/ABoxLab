@@ -12,7 +12,9 @@
 #include "imgui_impl_vulkan.h"
 #include "src/ui/MenuBar.hpp"
 #include "src/ui/FileTree.hpp"
+#include "src/ui/CodeEditor.hpp"
 #include "src/project/ProjectManager.hpp"
+#include "src/project/FileTemplates.hpp"
 
 // #include "ShaderHandler.hpp"
 /**
@@ -35,6 +37,7 @@ class ABoxLabApp {
   VkDevice imguiDevice = VK_NULL_HANDLE;
   MenuBar menuBar;
   FileTree fileTree;
+  CodeEditor codeEditor;
   ProjectManager projectManager;
 
   bool layoutRefreshed = false;

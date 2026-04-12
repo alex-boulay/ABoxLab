@@ -47,6 +47,8 @@ add_library(ui
   src/ui/FileTree.hpp
   src/ui/FileDialog.cpp
   src/ui/FileDialog.hpp
+  src/ui/CodeEditor.cpp
+  src/ui/CodeEditor.hpp
 )
 target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR})
 target_link_libraries(ui PUBLIC imgui glfw)
@@ -55,6 +57,8 @@ target_link_libraries(ui PUBLIC imgui glfw)
 add_library(project
   src/project/ProjectManager.cpp
   src/project/ProjectManager.hpp
+  src/project/FileTemplates.cpp
+  src/project/FileTemplates.hpp
 )
 target_include_directories(project PUBLIC ${CMAKE_SOURCE_DIR})
 

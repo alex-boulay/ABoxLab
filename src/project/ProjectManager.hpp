@@ -23,6 +23,9 @@ public:
   bool openProject(const std::string& projectPath);
   void closeProject();
 
+  // File operations
+  bool createFile(const std::string& filename, const std::string& content);
+
   // Getters
   bool hasActiveProject() const { return activeProject.has_value(); }
   const Project& getActiveProject() const { return activeProject.value(); }

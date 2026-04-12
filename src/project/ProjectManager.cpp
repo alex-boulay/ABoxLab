@@ -96,6 +96,28 @@ void ProjectManager::closeProject() {
   activeProject.reset();
 }
 
+bool ProjectManager::createFile(const std::string& filename, const std::string& content) {
+  if (!hasActiveProject()) {
+    return false;
+  }
+
+  fs::path filePath = fs::path(activeProject->path) / filename;
+
+  // Create parent directories if needed
+  if (filePath.has_parent_path()) {
+    fs::create_directories(filePath.parent_path());
+  }
+
+  std::ofstream file(filePath);
+  if (!file) {
+    return false;
+  }
+
+  file << content;
+  file.close();
+  return true;
+}
+
 bool ProjectManager::saveProjectFile(const Project& project) {
   std::ofstream file(project.configPath);
   if (!file) {
