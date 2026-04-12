@@ -29,7 +29,7 @@ class ABoxLabApp {
   // IMPORTANT: Member order determines destruction order (reverse of declaration)
   // wm must be destroyed LAST because rs needs the GLFW/Wayland connection
   // to properly destroy swapchains
-  WindowManager wm{baseWindowDimention};
+  WindowManager wm{baseWindowDimention, "ABoxLab"};
   ShaderHandler shaderHandler;
   ResourcesManager rs;
 
