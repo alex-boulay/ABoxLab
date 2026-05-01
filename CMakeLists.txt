@@ -26,9 +26,17 @@ FetchContent_MakeAvailable(slang)
 FetchContent_Declare(
   imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
-  GIT_TAG v1.91.7
+  GIT_TAG master
 )
 FetchContent_MakeAvailable(imgui)
+
+FetchContent_Declare(
+  ImGuiColorTextEdit
+  GIT_REPOSITORY https://github.com/goossens/ImGuiColorTextEdit.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(ImGuiColorTextEdit)
+FetchContent_GetProperties(ImGuiColorTextEdit SOURCE_DIR ImGuiColorTextEdit_SOURCE_DIR)
 
 add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui.cpp
@@ -61,8 +69,9 @@ add_library(ui
   src/ui/CodeEditor.hpp
   src/ui/ShaderCompiler.cpp
   src/ui/ShaderCompiler.hpp
+  "${ImGuiColorTextEdit_SOURCE_DIR}/TextEditor.cpp"
 )
-target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include)
+target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include "${ImGuiColorTextEdit_SOURCE_DIR}")
 target_link_libraries(ui PUBLIC imgui_lib glfw slang)
 
 # Project Module

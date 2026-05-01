@@ -2,6 +2,7 @@
 #include "utils/Logger.hpp"
 #include "graphics/ShaderHandler.hpp"
 #include <vulkan/vulkan_core.h>
+#include "ABox/src/utils/Logger.hpp"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <cstring>
@@ -58,10 +59,13 @@ void ABoxLabApp::initImGui() {
       .QueueFamily = dbe->getFamilyQueueIndices().at(QueueRole::Graphics),
       .Queue = dbe->graphicsQueue,
       .DescriptorPool = imguiDescriptorPool,
-      .RenderPass = dbe->rpm.front().get(),
       .MinImageCount = 2,
       .ImageCount = static_cast<uint32_t>(dbe->swapchains.front().getImagesCount()),
-      .MSAASamples = VK_SAMPLE_COUNT_1_BIT
+      .PipelineInfoMain = {
+          .RenderPass = dbe->rpm.front().get(),
+          .Subpass = 0,
+          .MSAASamples = VK_SAMPLE_COUNT_1_BIT
+      }
   };
 
   ImGui_ImplVulkan_Init(&initInfo);
@@ -95,17 +99,44 @@ void ABoxLabApp::cleanupImGui() {
 }
 
 void ABoxLabApp::renderFrame() {
+  auto *dbe = rs.getMainDevice();
   uint32_t imageIndex;
 
-  // Begin frame using ABox - get command buffer
-  VkCommandBuffer cmdBuffer = rs.beginFrame(&imageIndex);
+  // Wait for previous frame to complete
+  VkFence inFlightFence = dbe->getFrameSyncArray()->getFrameSyncObject()->inFlight;
+  vkWaitForFences(dbe->getDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+  vkResetFences(dbe->getDevice(), 1, &inFlightFence);
 
-  if (cmdBuffer == VK_NULL_HANDLE) {
-    // Swapchain out of date, skip this frame
+  // Acquire next swapchain image
+  VkResult result = vkAcquireNextImageKHR(
+      dbe->getDevice(),
+      dbe->swapchains.front().getSwapchain(),
+      UINT64_MAX,
+      dbe->getFrameSyncArray()->getFrameSyncObject()->imageOk.get(),
+      VK_NULL_HANDLE,
+      &imageIndex
+  );
+
+  if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+    LOG_WARN("Vulkan") << "Swapchain out of date";
     return;
   }
+  else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+    throw std::runtime_error("Failed to acquire swap chain image!");
+  }
 
-  auto *dbe = rs.getMainDevice();
+  uint32_t frameIndex = dbe->getFrameSyncArray()->getFrameIndex();
+  VkCommandBuffer cmdBuffer = dbe->getCommandHandler()->top().getCommandBuffer(frameIndex);
+
+  // Reset and begin command buffer
+  vkResetCommandBuffer(cmdBuffer, 0);
+  VkCommandBufferBeginInfo beginInfo{
+      .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+      .pNext = nullptr,
+      .flags = 0,
+      .pInheritanceInfo = nullptr
+  };
+  vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
   // Begin render pass
   VkClearValue clearColor = {.color = {.float32 = {0.1f, 0.1f, 0.1f, 1.0f}}};
@@ -133,8 +164,51 @@ void ABoxLabApp::renderFrame() {
   // End render pass
   vkCmdEndRenderPass(cmdBuffer);
 
-  // Submit and present using ABox
-  rs.endFrame(imageIndex, cmdBuffer);
+  // End command buffer
+  vkEndCommandBuffer(cmdBuffer);
+
+  // Submit to graphics queue
+  VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+  VkSubmitInfo submitInfo{
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .pNext = nullptr,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = dbe->getFrameSyncArray()->getFrameSyncObject()->imageOk.ptr(),
+      .pWaitDstStageMask = waitStages,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &cmdBuffer,
+      .signalSemaphoreCount = 1,
+      .pSignalSemaphores = dbe->getFrameSyncArray()->getFrameSyncObject()->renderEnd.ptr()
+  };
+
+  VkResult submitResult = vkQueueSubmit(
+      dbe->graphicsQueue,
+      1,
+      &submitInfo,
+      dbe->getFrameSyncArray()->getFrameSyncObject()->inFlight
+  );
+
+  if (submitResult != VK_SUCCESS) {
+    throw std::runtime_error("Failed to submit command buffer!");
+  }
+
+  // Present
+  VkPresentInfoKHR presentInfo{
+      .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+      .pNext = nullptr,
+      .waitSemaphoreCount = 1,
+      .pWaitSemaphores = dbe->getFrameSyncArray()->getFrameSyncObject()->renderEnd.ptr(),
+      .swapchainCount = 1,
+      .pSwapchains = dbe->swapchains.front().swapchainPtr(),
+      .pImageIndices = &imageIndex,
+      .pResults = nullptr
+  };
+
+  vkQueuePresentKHR(dbe->presentQueue, &presentInfo);
+
+  // Increment frame index for next frame
+  dbe->getFrameSyncArray()->incrementFrameIndex();
 }
 
 void ABoxLabApp::triggerLayoutRefresh() {

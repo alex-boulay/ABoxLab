@@ -10,8 +10,21 @@
 namespace fs = std::filesystem;
 
 CodeEditor::CodeEditor() {
-  textBuffer.resize(MAX_FILE_SIZE);
-  textBuffer[0] = '\0';
+  // Configure the text editor
+  editor.SetTabSize(4);
+  editor.SetAutoIndentEnabled(true);
+  editor.SetShowLineNumbersEnabled(true);
+  editor.SetShowMatchingBrackets(true);
+  editor.SetPalette(TextEditor::GetDarkPalette());
+
+  // Set up change callback for debounce
+  editor.SetChangeCallback([this]() {
+    modified = true;
+    if (isShaderFile(currentFilePath)) {
+      lastEditTime = std::chrono::steady_clock::now();
+      lintScheduled = true;
+    }
+  }, 0);
 }
 
 CodeEditor::~CodeEditor() {
@@ -31,13 +44,16 @@ void CodeEditor::loadFileContent(const std::string& filePath) {
   buffer << file.rdbuf();
   std::string content = buffer.str();
 
-  if (content.size() >= MAX_FILE_SIZE) {
-    std::cerr << "File too large: " << filePath << std::endl;
-    return;
+  editor.SetText(content);
+
+  // Set language based on file extension
+  std::string ext = fs::path(filePath).extension().string();
+  if (ext == ".vert" || ext == ".frag" || ext == ".comp") {
+    editor.SetLanguage(TextEditor::Language::Glsl());
+  } else if (ext == ".hlsl") {
+    editor.SetLanguage(TextEditor::Language::Hlsl());
   }
 
-  std::copy(content.begin(), content.end(), textBuffer.begin());
-  textBuffer[content.size()] = '\0';
   modified = false;
 }
 
@@ -61,7 +77,8 @@ void CodeEditor::saveFile() {
     return;
   }
 
-  file << textBuffer.data();
+  std::string text = editor.GetText();
+  file << text;
   file.close();
   modified = false;
 }
@@ -75,7 +92,7 @@ void CodeEditor::closeFile() {
   lintResultReady = false;
 
   currentFilePath.clear();
-  textBuffer[0] = '\0';
+  editor.ClearText();
   modified = false;
   showCompilationResults = false;
 }
@@ -104,7 +121,7 @@ void CodeEditor::updateLinting() {
       lintScheduled = false;
 
       // Capture source snapshot for the thread
-      std::string source(textBuffer.data());
+      std::string source = editor.GetText();
       std::string path = currentFilePath;
 
       // Join previous thread if still running
@@ -129,42 +146,72 @@ void CodeEditor::updateLinting() {
     lastResultWasLint = true;
     showCompilationResults = true;
     lintResultReady = false;
+
+    // Update error markers in the editor
+    editor.ClearMarkers();
+    std::cerr << "[CodeEditor] Updating " << lastCompilationResult.diagnostics.size() << " markers\n";
+    for (const auto& diag : lastCompilationResult.diagnostics) {
+      if (diag.line > 0) {
+        ImU32 color = (diag.severity == "error")
+            ? IM_COL32(255, 60, 60, 200)
+            : IM_COL32(255, 220, 0, 200);
+        std::cerr << "[CodeEditor] Adding marker at line " << diag.line << ": " << diag.message << "\n";
+        editor.AddMarker(diag.line, color, color, diag.severity, diag.message);
+      }
+    }
   }
 }
 
 void CodeEditor::renderCompilationResults() {
-  ImGui::SetNextItemOpen(true, ImGuiCond_FirstUseEver);
-  if (ImGui::CollapsingHeader("Compilation Results", &showCompilationResults)) {
-    // Show whether this is live linting or manual compile
-    ImGui::Text("[%s]", lastResultWasLint ? "Live Linting" : "Manual Compile");
-    ImGui::SameLine();
+  // Use CollapsingHeader for proper collapse behavior (no extra space when collapsed)
+  if (!ImGui::CollapsingHeader("Compilation Results", &showCompilationResults, ImGuiTreeNodeFlags_DefaultOpen)) {
+    return; // Content is collapsed
+  }
 
-    if (lastCompilationResult.success) {
-      ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✓ Success");
-    } else {
-      ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "✗ Failed");
-    }
+  // Set background color based on success/failure
+  ImVec4 bgColor;
+  if (lastCompilationResult.success) {
+    bgColor = ImVec4(0.15f, 0.25f, 0.15f, 0.8f); // Dark green tint
+  } else {
+    bgColor = ImVec4(0.25f, 0.15f, 0.15f, 0.8f); // Dark red tint
+  }
 
-    ImGui::Separator();
+  ImGui::PushStyleColor(ImGuiCol_ChildBg, bgColor);
+  ImGui::BeginChild("CompilationResultsPanel", ImVec2(0, 0), true);
+  ImGui::PopStyleColor();
 
-    if (lastCompilationResult.diagnostics.empty()) {
-      ImGui::TextDisabled("No diagnostics");
-    } else {
-      for (const auto& diag : lastCompilationResult.diagnostics) {
-        ImVec4 color;
-        if (diag.severity == "error") {
-          color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);
-        } else if (diag.severity == "warning") {
-          color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
-        } else {
-          color = ImVec4(0.5f, 1.0f, 1.0f, 1.0f);
-        }
+  // Show whether this is live linting or manual compile
+  ImGui::Text("[%s]", lastResultWasLint ? "Live Linting" : "Manual Compile");
+  ImGui::SameLine();
 
-        ImGui::TextColored(color, "[%s:%d:%d] %s", diag.severity.c_str(), diag.line,
-                           diag.column, diag.message.c_str());
-      }
+  if (lastCompilationResult.success) {
+    ImGui::TextColored(ImVec4(0.5f, 1.0f, 0.5f, 1.0f), "✓ Success");
+  } else {
+    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "✗ Failed");
+  }
+
+  ImGui::Separator();
+
+  // Build diagnostics text for display
+  static std::string diagnosticsText;
+  if (lastCompilationResult.diagnostics.empty()) {
+    diagnosticsText = "No diagnostics";
+  } else {
+    diagnosticsText.clear();
+    for (const auto& diag : lastCompilationResult.diagnostics) {
+      if (!diagnosticsText.empty()) diagnosticsText += "\n";
+      diagnosticsText += "[" + diag.severity + ":" + std::to_string(diag.line) +
+                        ":" + std::to_string(diag.column) + "] " + diag.message;
     }
   }
+
+  // Display as read-only text input (allows selecting all text with Ctrl+A)
+  ImVec2 diagSize = ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
+  ImGui::InputTextMultiline("##diagnostics", diagnosticsText.data(),
+                            diagnosticsText.capacity() + 1, diagSize,
+                            ImGuiInputTextFlags_ReadOnly);
+
+  ImGui::EndChild();
 }
 
 void CodeEditor::render(float offsetX) {
@@ -219,59 +266,40 @@ void CodeEditor::render(float offsetX) {
 
     ImGui::Separator();
 
-    // Text editor
+    // Text editor and compilation results
     ImVec2 contentRegion = ImGui::GetContentRegionAvail();
     ImVec2 textSize = ImVec2(contentRegion.x, contentRegion.y);
 
-    // Reduce height if showing compilation results
+    // Split space between editor and compilation results if showing results
     if (showCompilationResults) {
-      textSize.y *= 0.6f;
-    }
-    ImGuiInputTextFlags textFlags = ImGuiInputTextFlags_AllowTabInput;
-
-    // Draw error line highlights before the text editor
-    if (!lastCompilationResult.diagnostics.empty()) {
-      ImVec2 editorPos = ImGui::GetCursorScreenPos();
-      ImDrawList* drawList = ImGui::GetWindowDrawList();
-      float lineHeight = ImGui::GetTextLineHeight();
-
-      // Get all unique error lines
-      std::set<int> errorLines;
-      for (const auto& diag : lastCompilationResult.diagnostics) {
-        if (diag.line > 0) {
-          errorLines.insert(diag.line - 1); // Convert to 0-based
-        }
-      }
-
-      // Draw highlight rectangles for error lines
-      for (int lineNum : errorLines) {
-        float lineY = editorPos.y + (lineNum * lineHeight);
-        ImVec2 lineStart(editorPos.x, lineY);
-        ImVec2 lineEnd(editorPos.x + textSize.x, lineY + lineHeight);
-
-        // Draw semi-transparent red background for error lines
-        drawList->AddRectFilled(lineStart, lineEnd, ImGui::GetColorU32(ImVec4(1.0f, 0.0f, 0.0f, 0.15f)));
-      }
+      textSize.y = contentRegion.y * 0.6f;
     }
 
-    if (ImGui::InputTextMultiline("##editor", textBuffer.data(), textBuffer.size(), textSize, textFlags)) {
-      modified = true;
-      // Start linting with debounce
-      if (isShaderFile(currentFilePath)) {
-        lastEditTime = std::chrono::steady_clock::now();
-        lintScheduled = true;
+    // Render the text editor (change callback handles modified/linting)
+    editor.Render("##editor", textSize);
+
+    // Focus handling: Tab to focus, track if editor has focus
+    ImGuiIO& io = ImGui::GetIO();
+    bool editorItemHovered = ImGui::IsItemHovered();
+    bool editorItemFocused = ImGui::IsItemFocused();
+
+    if (editorItemFocused) {
+      editorHasFocus = true;
+      // Prevent Return key from exiting the editor
+      if (ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+        io.WantTextInput = true;
       }
+    } else if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+      editorHasFocus = false;
+    }
+
+    // Allow Tab to focus the editor if it's not already focused
+    if (!editorHasFocus && ImGui::IsKeyPressed(ImGuiKey_Tab) && ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)) {
+      editorHasFocus = true;
     }
 
     // Compilation results panel
-    if (showCompilationResults) {
-      ImGui::Spacing();
-      ImVec2 resultsSize =
-          ImVec2(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y);
-      ImGui::BeginChild("CompilationResults", resultsSize, true);
-      renderCompilationResults();
-      ImGui::EndChild();
-    }
+    renderCompilationResults();
 
     // Keyboard shortcuts
     if (ImGui::IsKeyPressed(ImGuiKey_S) && ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {

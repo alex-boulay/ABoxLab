@@ -1,12 +1,12 @@
 #pragma once
 
 #include <string>
-#include <vector>
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <chrono>
 #include "ShaderCompiler.hpp"
+#include "TextEditor.h"
 
 class CodeEditor {
 public:
@@ -25,14 +25,14 @@ public:
 
 private:
   std::string currentFilePath;
-  std::vector<char> textBuffer;
   bool modified = false;
-  static const size_t MAX_FILE_SIZE = 1024 * 1024; // 1MB max
 
+  TextEditor editor;
   ShaderCompiler compiler;
   CompilationResult lastCompilationResult;
   bool showCompilationResults = false;
   bool lastResultWasLint = false;
+  bool editorHasFocus = false;
 
   // Real-time linting with debounce
   std::chrono::steady_clock::time_point lastEditTime;

@@ -125,15 +125,15 @@ void FileTree::render() {
     ImGui::TextDisabled("No project opened");
     ImGui::TextWrapped("Create or open a project from the File menu");
   } else {
-    // Collapsible header for the workspace root
+    // Non-collapsible workspace root
     std::string workspaceName = fs::path(workspacePath).filename().string();
     if (workspaceName.empty()) {
       workspaceName = workspacePath; // Use full path if no filename
     }
 
-    if (ImGui::CollapsingHeader(workspaceName.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-      renderDirectory(workspacePath);
-    }
+    ImGui::Text("%s", workspaceName.c_str());
+    ImGui::Separator();
+    renderDirectory(workspacePath);
   }
 
   ImGui::End();
