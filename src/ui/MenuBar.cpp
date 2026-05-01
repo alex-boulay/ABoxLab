@@ -95,13 +95,9 @@ void MenuBar::render(GLFWwindow* window) {
       }
       ImGui::Separator();
 
-      // Disable menu if no project is open
+      // Skip menu if no project is open
       bool hasProject = projectManager && projectManager->hasActiveProject();
-      if (!hasProject) {
-        ImGui::BeginDisabled();
-      }
-
-      if (ImGui::BeginMenu("New Shader")) {
+      if (hasProject && ImGui::BeginMenu("New Shader")) {
         if (ImGui::BeginMenu("GLSL")) {
           if (ImGui::MenuItem("Vertex Shader")) {
             showCreateShaderDialog = true;
@@ -146,10 +142,6 @@ void MenuBar::render(GLFWwindow* window) {
           ImGui::EndMenu();
         }
         ImGui::EndMenu();
-      }
-
-      if (!hasProject) {
-        ImGui::EndDisabled();
       }
 
       ImGui::Separator();

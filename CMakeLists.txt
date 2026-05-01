@@ -12,6 +12,16 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 
 include(FetchContent)
+set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/_deps)
+
+# Fetch slang first (it includes glslang as a dependency)
+# This must be before add_subdirectory(ABox) so ABox can use glslang targets
+FetchContent_Declare(
+  slang
+  GIT_REPOSITORY https://github.com/shader-slang/slang.git
+  GIT_TAG v0.27.0
+)
+FetchContent_MakeAvailable(slang)
 
 FetchContent_Declare(
   imgui
@@ -20,7 +30,7 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-add_library(imgui
+add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp
   ${imgui_SOURCE_DIR}/imgui_tables.cpp
@@ -28,11 +38,11 @@ add_library(imgui
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
 )
-target_include_directories(imgui PUBLIC
+target_include_directories(imgui_lib PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
 )
-target_link_libraries(imgui PUBLIC
+target_link_libraries(imgui_lib PUBLIC
   Vulkan::Vulkan
   glfw
 )
@@ -49,9 +59,11 @@ add_library(ui
   src/ui/FileDialog.hpp
   src/ui/CodeEditor.cpp
   src/ui/CodeEditor.hpp
+  src/ui/ShaderCompiler.cpp
+  src/ui/ShaderCompiler.hpp
 )
-target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR})
-target_link_libraries(ui PUBLIC imgui glfw)
+target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include)
+target_link_libraries(ui PUBLIC imgui_lib glfw slang)
 
 # Project Module
 add_library(project
@@ -90,7 +102,7 @@ target_link_libraries(
   ABoxLab
   PRIVATE
   ABoxLib
-  imgui
+  imgui_lib
   ui
   project
 )
