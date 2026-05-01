@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <functional>
 #include <string>
+#include <vector>
 
 class ProjectManager;
 
@@ -27,14 +28,20 @@ public:
   void setOnCreateShaderCallback(std::function<void(const std::string&, const std::string&)> callback) {
     onCreateShader = callback;
   }
+  void setOnOpenRecentProjectCallback(std::function<void(const std::string&)> callback) {
+    onOpenRecentProject = callback;
+  }
+  void setRecentProjects(const std::vector<std::string>* recent) { recentProjects = recent; }
 
 private:
   std::function<void(const std::string&, const std::string&)> onCreateProject;
   std::function<void(const std::string&)> onOpenProject;
   std::function<void()> onToggleWorkspace;
   std::function<void(const std::string&, const std::string&)> onCreateShader;
+  std::function<void(const std::string&)> onOpenRecentProject;
 
   ProjectManager* projectManager = nullptr;
+  const std::vector<std::string>* recentProjects = nullptr;
 
   bool showCreateProjectDialog = false;
   bool showCreateShaderDialog = false;

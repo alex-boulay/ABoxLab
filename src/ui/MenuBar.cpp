@@ -93,6 +93,25 @@ void MenuBar::render(GLFWwindow* window) {
           }
         }
       }
+
+      // Open Recent submenu
+      if (ImGui::BeginMenu("Open Recent", recentProjects && !recentProjects->empty())) {
+        for (const auto& projectPath : *recentProjects) {
+          // Display just the project folder name
+          std::string displayName = fs::path(projectPath).parent_path().filename().string();
+          if (ImGui::MenuItem(displayName.c_str())) {
+            if (onOpenRecentProject) {
+              onOpenRecentProject(projectPath);
+            }
+          }
+          // Show full path as tooltip on hover
+          if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("%s", projectPath.c_str());
+          }
+        }
+        ImGui::EndMenu();
+      }
+
       ImGui::Separator();
 
       // Skip menu if no project is open

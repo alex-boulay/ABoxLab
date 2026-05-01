@@ -235,6 +235,17 @@ ABoxLabApp::ABoxLabApp() {
     }
   });
 
+  // Set up recent projects
+  menuBar.setRecentProjects(&projectManager.getRecentProjects());
+  menuBar.setOnOpenRecentProjectCallback([this](const std::string& projectFilePath) {
+    if (projectManager.openProject(projectFilePath)) {
+      fileTree.setWorkspacePath(projectManager.getActiveProject().path);
+      LOG_INFO("App") << "Opened recent project: " << projectManager.getActiveProject().name;
+    } else {
+      LOG_INFO("App") << "Failed to open recent project at: " << projectFilePath;
+    }
+  });
+
   menuBar.setOnToggleWorkspaceCallback([this]() {
     fileTree.toggleOpen();
   });
