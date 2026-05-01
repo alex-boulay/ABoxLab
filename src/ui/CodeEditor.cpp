@@ -111,6 +111,12 @@ void CodeEditor::compileShader() {
   lastCompilationResult = compiler.compile(currentFilePath);
   lastResultWasLint = false;
   showCompilationResults = true;
+
+  // If compilation succeeded, add to shader graph
+  if (lastCompilationResult.success) {
+    std::string shaderName = fs::path(currentFilePath).filename().string();
+    shaderGraph.addShaderNode(shaderName, currentFilePath);
+  }
 }
 
 void CodeEditor::updateLinting() {
@@ -229,16 +235,36 @@ void CodeEditor::render(float offsetX) {
 
   ImGuiWindowFlags flags = ImGuiWindowFlags_NoMove |
                            ImGuiWindowFlags_NoResize |
-                           ImGuiWindowFlags_NoCollapse;
+                           ImGuiWindowFlags_NoCollapse |
+                           ImGuiWindowFlags_NoTitleBar;
 
-  std::string windowTitle = "Editor";
-  if (!currentFilePath.empty()) {
-    std::string filename = fs::path(currentFilePath).filename().string();
-    windowTitle = filename + (modified ? " *" : "");
+  ImGui::Begin("##Editor", nullptr, flags);
+
+  // Tab bar for switching views
+  if (ImGui::BeginTabBar("EditorTabs")) {
+    if (ImGui::BeginTabItem("Code Editor")) {
+      currentView = CODE_EDITOR;
+      ImGui::EndTabItem();
+    }
+    if (ImGui::BeginTabItem("Shader Graph")) {
+      currentView = SHADER_GRAPH;
+      ImGui::EndTabItem();
+    }
+    ImGui::EndTabBar();
   }
 
-  ImGui::Begin(windowTitle.c_str(), nullptr, flags);
+  ImGui::Separator();
 
+  if (currentView == CODE_EDITOR) {
+    renderCodeEditor();
+  } else {
+    renderShaderGraphView();
+  }
+
+  ImGui::End();
+}
+
+void CodeEditor::renderCodeEditor() {
   if (currentFilePath.empty()) {
     ImGui::TextDisabled("No file open");
     ImGui::TextWrapped("Click on a file in the workspace to open it");
@@ -310,6 +336,9 @@ void CodeEditor::render(float offsetX) {
       compileShader();
     }
   }
+}
 
-  ImGui::End();
+void CodeEditor::renderShaderGraphView() {
+  ImVec2 contentRegion = ImGui::GetContentRegionAvail();
+  shaderGraph.render(0, 0, contentRegion.x, contentRegion.y);
 }

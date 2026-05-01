@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include "ShaderCompiler.hpp"
+#include "ShaderGraph.hpp"
 #include "TextEditor.h"
 
 class CodeEditor {
@@ -29,10 +30,15 @@ private:
 
   TextEditor editor;
   ShaderCompiler compiler;
+  ShaderGraph shaderGraph;
   CompilationResult lastCompilationResult;
   bool showCompilationResults = false;
   bool lastResultWasLint = false;
   bool editorHasFocus = false;
+
+  // Tab system
+  enum ViewMode { CODE_EDITOR, SHADER_GRAPH };
+  ViewMode currentView = CODE_EDITOR;
 
   // Real-time linting with debounce
   std::chrono::steady_clock::time_point lastEditTime;
@@ -47,4 +53,6 @@ private:
   void renderCompilationResults();
   bool isShaderFile(const std::string& filePath) const;
   void updateLinting();
+  void renderCodeEditor();
+  void renderShaderGraphView();
 };

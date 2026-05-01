@@ -38,6 +38,14 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(ImGuiColorTextEdit)
 FetchContent_GetProperties(ImGuiColorTextEdit SOURCE_DIR ImGuiColorTextEdit_SOURCE_DIR)
 
+FetchContent_Declare(
+  imnodes
+  GIT_REPOSITORY https://github.com/Nelarius/imnodes.git
+  GIT_TAG master
+)
+FetchContent_Populate(imnodes)
+FetchContent_GetProperties(imnodes SOURCE_DIR imnodes_SOURCE_DIR)
+
 add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -69,9 +77,12 @@ add_library(ui
   src/ui/CodeEditor.hpp
   src/ui/ShaderCompiler.cpp
   src/ui/ShaderCompiler.hpp
+  src/ui/ShaderGraph.cpp
+  src/ui/ShaderGraph.hpp
   "${ImGuiColorTextEdit_SOURCE_DIR}/TextEditor.cpp"
+  "${imnodes_SOURCE_DIR}/imnodes.cpp"
 )
-target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include "${ImGuiColorTextEdit_SOURCE_DIR}")
+target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include "${ImGuiColorTextEdit_SOURCE_DIR}" "${imnodes_SOURCE_DIR}")
 target_link_libraries(ui PUBLIC imgui_lib glfw slang)
 
 # Project Module
