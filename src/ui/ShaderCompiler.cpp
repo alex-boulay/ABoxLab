@@ -202,9 +202,23 @@ CompilationResult ShaderCompiler::compile(const std::string& shaderPath) {
   std::string stageStr = getShaderStageFromExtension(shaderPath);
   std::cerr << "[ShaderCompiler] Detected shader stage: " << stageStr << std::endl;
 
+  // Map stage string to SlangStage
+  SlangStage stage = SLANG_STAGE_FRAGMENT; // default
+  if (stageStr == "vertex") stage = SLANG_STAGE_VERTEX;
+  else if (stageStr == "fragment") stage = SLANG_STAGE_FRAGMENT;
+  else if (stageStr == "compute") stage = SLANG_STAGE_COMPUTE;
+
   // Add translation unit with GLSL source language
   int translationUnitIndex = compileRequest->addTranslationUnit(SLANG_SOURCE_LANGUAGE_GLSL, "shader");
   compileRequest->addTranslationUnitSourceString(translationUnitIndex, "shader", sourceCode.c_str());
+
+  // Set compilation target to SPIRV
+  compileRequest->setCodeGenTarget(SLANG_SPIRV);
+  std::cerr << "[ShaderCompiler] Set code gen target to SPIRV" << std::endl;
+
+  // Add entry point for the main function
+  compileRequest->addEntryPoint(translationUnitIndex, "main", stage);
+  std::cerr << "[ShaderCompiler] Added entry point for stage: " << stageStr << std::endl;
 
   // Compile
   SlangResult compileRes = compileRequest->compile();
@@ -227,7 +241,30 @@ CompilationResult ShaderCompiler::compile(const std::string& shaderPath) {
     }
   } else {
     std::cerr << "[ShaderCompiler] Compilation succeeded" << std::endl;
-    // TODO: Generate SPIR-V output
+
+    // Get the compiled SPIR-V code
+    size_t codeSize = 0;
+    const void* codePtr = compileRequest->getCompileRequestCode(&codeSize);
+
+    if (codePtr && codeSize > 0) {
+      // Generate output file path (append .spv to preserve shader type in filename)
+      fs::path inputPath(shaderPath);
+      fs::path outputPath = inputPath.parent_path() / (inputPath.filename().string() + ".spv");
+
+      // Write SPIR-V binary to file
+      std::ofstream spirvFile(outputPath, std::ios::binary);
+      if (spirvFile) {
+        spirvFile.write(static_cast<const char*>(codePtr), codeSize);
+        spirvFile.close();
+
+        result.spirvOutput = outputPath.string();
+        std::cerr << "[ShaderCompiler] SPIR-V output written to: " << result.spirvOutput << " (size: " << codeSize << " bytes)" << std::endl;
+      } else {
+        std::cerr << "[ShaderCompiler] Failed to open output file: " << outputPath.string() << std::endl;
+      }
+    } else {
+      std::cerr << "[ShaderCompiler] Failed to get compiled code or code size is 0" << std::endl;
+    }
   }
 
   compileRequest->release();

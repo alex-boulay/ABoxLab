@@ -64,6 +64,10 @@ void CodeEditor::openFile(const std::string& filePath) {
 
   currentFilePath = filePath;
   loadFileContent(filePath);
+
+  // Reset compilation results when switching files
+  showCompilationResults = false;
+  lastCompilationResult = {};
 }
 
 void CodeEditor::saveFile() {
@@ -240,35 +244,38 @@ void CodeEditor::render(float offsetX) {
 
   ImGui::Begin("##Editor", nullptr, flags);
 
-  // Tab bar for switching views
-  if (ImGui::BeginTabBar("EditorTabs")) {
-    if (ImGui::BeginTabItem("Code Editor")) {
-      currentView = CODE_EDITOR;
-      ImGui::EndTabItem();
-    }
-    if (ImGui::BeginTabItem("Shader Graph")) {
-      currentView = SHADER_GRAPH;
-      ImGui::EndTabItem();
-    }
-    ImGui::EndTabBar();
-  }
-
-  ImGui::Separator();
-
-  if (currentView == CODE_EDITOR) {
-    renderCodeEditor();
+  if (currentFilePath.empty()) {
+    ImGui::TextDisabled("No file open");
+    ImGui::TextWrapped("Click on a file in the workspace to open it");
   } else {
-    renderShaderGraphView();
+    // Tab bar for switching views (only show when file is open)
+    if (ImGui::BeginTabBar("EditorTabs")) {
+      if (ImGui::BeginTabItem("Code Editor")) {
+        currentView = CODE_EDITOR;
+        ImGui::EndTabItem();
+      }
+      if (ImGui::BeginTabItem("Shader Graph")) {
+        currentView = SHADER_GRAPH;
+        ImGui::EndTabItem();
+      }
+      ImGui::EndTabBar();
+    }
+
+    ImGui::Separator();
+
+    if (currentView == CODE_EDITOR) {
+      renderCodeEditor();
+    } else {
+      renderShaderGraphView();
+    }
   }
 
   ImGui::End();
 }
 
 void CodeEditor::renderCodeEditor() {
-  if (currentFilePath.empty()) {
-    ImGui::TextDisabled("No file open");
-    ImGui::TextWrapped("Click on a file in the workspace to open it");
-  } else {
+  // File content display and editing
+  {
     // File path display
     ImGui::Text("File: %s", currentFilePath.c_str());
     ImGui::Separator();

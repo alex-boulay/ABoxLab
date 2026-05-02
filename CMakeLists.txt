@@ -10,6 +10,7 @@ project(ABoxLab)
 
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
+find_package(SPIRV-Reflect REQUIRED)
 
 include(FetchContent)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/_deps)
@@ -83,7 +84,8 @@ add_library(ui
   "${imnodes_SOURCE_DIR}/imnodes.cpp"
 )
 target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${slang_SOURCE_DIR}/include "${ImGuiColorTextEdit_SOURCE_DIR}" "${imnodes_SOURCE_DIR}")
-target_link_libraries(ui PUBLIC imgui_lib glfw slang)
+target_link_libraries(ui PUBLIC imgui_lib glfw slang SPIRV-Reflect::spirv-reflect-static)
+target_compile_definitions(ui PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
 
 # Project Module
 add_library(project

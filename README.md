@@ -52,18 +52,25 @@ A shader testing and 3D development tool built with Vulkan and ImGui.
 
 ## Current Status
 
-- Basic Vulkan rendering setup with ABox
-- ImGui integration for UI
-- Window management and swapchain
-- Render pass and framebuffer management
+### ✅ Implemented
+- Vulkan rendering with manual frame synchronization
+- ImGui master branch with custom rendering integration
+- Project management with recent projects tracking
+- File tree view with project browsing
+- Code editor with syntax highlighting (GLSL/HLSL)
+- Real-time shader linting with error markers
+- Shader compilation to SPIR-V using Slang compiler
+- Shader introspection to extract inputs/outputs via spirv_reflect
+- Shader graph component (foundation for node editor)
+- Tab-based UI switching between editor and graph views
 
-Planned:
-- UI layout
-- File tree view
-- Code editor
-- 3D viewport
-- Shader compilation system
-- Object management
+### 🔄 In Progress
+- Visual node editor integration (imnodes) — allows linking shader nodes together
+
+### 📋 Planned
+- 3D render viewport for real-time shader preview (like ShaderToy)
+- Connect shader graph to 3D viewport for live visualization
+- Object management and scene composition
 
 ## Architecture
 
@@ -107,10 +114,13 @@ This mirrors how Blender, GIMP, Qt Creator, and other professional tools manage 
 ### Core Technologies
 
 - **ABox**: Custom Vulkan rendering library for resource management
-- **ImGui**: UI framework for interface elements
+- **ImGui**: UI framework (master branch)
+- **ImGuiColorTextEdit**: Syntax-highlighted code editor
+- **imnodes**: Visual node editor UI (in progress)
 - **GLFW**: Window and input handling
 - **Vulkan**: Graphics API
-- **Slang**: High-level shader compiler (planned)
+- **Slang**: High-level shader compiler
+- **SPIR-V Reflect**: Shader introspection
 
 ## Building
 

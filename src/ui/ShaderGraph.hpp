@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <spirv_reflect.h>
 
 struct ShaderNode {
   int id;
