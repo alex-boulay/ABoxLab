@@ -2,36 +2,115 @@
 #include "imgui.h"
 #include "ShaderCompiler.hpp"
 #include <algorithm>
-#include <filesystem>
 #include <iostream>
 #include <fstream>
 
-namespace fs = std::filesystem;
-
 ShaderGraph::ShaderGraph() {
-  // TODO: Initialize imnodes context when available
+  imnodesCtx = ImNodes::CreateContext();
 }
 
 ShaderGraph::~ShaderGraph() {
-  // TODO: Cleanup imnodes context when available
+  if (imnodesCtx) {
+    ImNodes::DestroyContext(imnodesCtx);
+  }
 }
 
 void ShaderGraph::render(float offsetX, float offsetY, float width, float height) {
-  // Placeholder UI for shader graph (renders within current window)
-  ImGui::Text("Shader Graph (imnodes integration in progress)");
-  ImGui::Separator();
+  ImNodes::SetCurrentContext(imnodesCtx);
 
-  ImGui::Text("Nodes: %zu", nodes.size());
-  ImGui::Text("Connections: %zu", connections.size());
+  // Lazy init: configure style/IO on first render when ImGui context is guaranteed ready
+  static bool initialized = false;
+  if (!initialized) {
+    ImNodes::StyleColorsDark();
+    ImNodes::GetIO().LinkDetachWithModifierClick.Modifier = &ImGui::GetIO().KeyCtrl;
+    initialized = true;
+  }
 
-  if (ImGui::CollapsingHeader("Loaded Shaders")) {
-    for (const auto& node : nodes) {
-      ImGui::BulletText("%s", node.name.c_str());
-      ImGui::Indent();
-      ImGui::Text("Inputs: %zu", node.inputs.size());
-      ImGui::Text("Outputs: %zu", node.outputs.size());
-      ImGui::Unindent();
+  ImNodes::BeginNodeEditor();
+
+  // Render nodes
+  for (auto& node : nodes) {
+    // Position new nodes so they don't stack
+    if (node.needsPositioning) {
+      float x = 50.0f + (node.id % 4) * 300.0f;
+      float y = 50.0f + (node.id / 4) * 250.0f;
+      ImNodes::SetNodeGridSpacePos(node.id, ImVec2(x, y));
+      node.needsPositioning = false;
     }
+
+    ImNodes::BeginNode(node.id);
+
+    // Title bar
+    ImNodes::BeginNodeTitleBar();
+    ImGui::TextUnformatted(node.name.c_str());
+    ImNodes::EndNodeTitleBar();
+
+    // Input pins (left side)
+    for (int i = 0; i < static_cast<int>(node.inputs.size()); ++i) {
+      const auto& var = node.inputs[i];
+      ImNodesPinShape shape = (var.type == "resource")
+          ? ImNodesPinShape_QuadFilled
+          : ImNodesPinShape_CircleFilled;
+      ImNodes::BeginInputAttribute(inputAttrId(node.id, i), shape);
+      ImGui::Text("%s (%s)", var.name.c_str(), var.type.c_str());
+      ImNodes::EndInputAttribute();
+    }
+
+    // Output pins (right side)
+    for (int i = 0; i < static_cast<int>(node.outputs.size()); ++i) {
+      const auto& var = node.outputs[i];
+      ImNodes::BeginOutputAttribute(outputAttrId(node.id, i));
+      ImGui::Text("%s (%s)", var.name.c_str(), var.type.c_str());
+      ImNodes::EndOutputAttribute();
+    }
+
+    ImNodes::EndNode();
+  }
+
+  // Render existing links
+  for (const auto& conn : connections) {
+    int startAttr = outputAttrId(conn.fromNodeId, conn.fromOutputIndex);
+    int endAttr = inputAttrId(conn.toNodeId, conn.toInputIndex);
+    ImNodes::Link(conn.id, startAttr, endAttr);
+  }
+
+  ImNodes::MiniMap(0.15f, ImNodesMiniMapLocation_BottomRight);
+  ImNodes::EndNodeEditor();
+
+  // Handle new link creation
+  int startAttr, endAttr;
+  if (ImNodes::IsLinkCreated(&startAttr, &endAttr)) {
+    // Decode which node/pin the attributes belong to
+    int fromNodeId = startAttr / 1000;
+    int fromPin = startAttr % 1000;
+    int toNodeId = endAttr / 1000;
+    int toPin = endAttr % 1000;
+
+    // Determine direction: output attrs are >= 500, input attrs are < 500
+    // imnodes may swap start/end, so normalize
+    if (fromPin < 500 && toPin >= 500) {
+      std::swap(fromNodeId, toNodeId);
+      std::swap(fromPin, toPin);
+    }
+
+    if (fromPin >= 500) {
+      ShaderConnection conn;
+      conn.id = nextLinkId++;
+      conn.fromNodeId = fromNodeId;
+      conn.fromOutputIndex = fromPin - 500;
+      conn.toNodeId = toNodeId;
+      conn.toInputIndex = toPin;
+      connections.push_back(conn);
+    }
+  }
+
+  // Handle link deletion
+  int destroyedLinkId;
+  if (ImNodes::IsLinkDestroyed(&destroyedLinkId)) {
+    connections.erase(
+        std::remove_if(connections.begin(), connections.end(),
+                       [destroyedLinkId](const ShaderConnection& c) { return c.id == destroyedLinkId; }),
+        connections.end());
   }
 }
 
@@ -61,7 +140,7 @@ void ShaderGraph::removeShaderNode(int nodeId) {
 }
 
 void ShaderGraph::addConnection(int fromNodeId, int fromOutput, int toNodeId, int toInput) {
-  connections.push_back({fromNodeId, fromOutput, toNodeId, toInput});
+  connections.push_back({nextLinkId++, fromNodeId, fromOutput, toNodeId, toInput});
 }
 
 void ShaderGraph::removeConnection(int connectionId) {
