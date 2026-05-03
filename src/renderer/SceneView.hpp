@@ -27,6 +27,10 @@ public:
 
   void setScene(Scene* scene) { this->scene = scene; }
 
+  // Hot-reload: swap pipeline shaders or mesh at runtime
+  void reloadPipeline(const std::string& vertSpvPath, const std::string& fragSpvPath);
+  void setMesh(int primitiveType); // 0=Quad, 1=Cube, 2=Sphere
+
   // Record offscreen render pass into the given command buffer
   void recordCommands(VkCommandBuffer cmdBuffer);
 

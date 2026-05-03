@@ -6,6 +6,9 @@
 #include <fstream>
 #include <array>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include "ImGuizmo.h"
+
 SceneView::~SceneView() {
   cleanup();
 }
@@ -32,9 +35,9 @@ void SceneView::init(VkDevice device, VkPhysicalDevice physicalDevice,
   registerImGuiTexture();
   createPipeline(vertSpvPath, fragSpvPath);
 
-  // Upload default quad mesh
-  Mesh quad = Mesh::createQuad();
-  uploadMesh(quad);
+  // Upload default cube mesh
+  Mesh cube = Mesh::createCube();
+  uploadMesh(cube);
 
   initialized = true;
   std::cerr << "[SceneView] Initialized " << width << "x" << height << std::endl;
@@ -308,9 +311,17 @@ void SceneView::createPipeline(const std::string& vertSpvPath, const std::string
     .pAttachments = &colorBlendAttachment,
   };
 
-  // Pipeline layout (no descriptors or push constants for now)
+  // Push constant for MVP matrix
+  VkPushConstantRange pushConstantRange{
+    .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+    .offset = 0,
+    .size = sizeof(glm::mat4),
+  };
+
   VkPipelineLayoutCreateInfo layoutInfo{
     .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+    .pushConstantRangeCount = 1,
+    .pPushConstantRanges = &pushConstantRange,
   };
 
   if (vkCreatePipelineLayout(device, &layoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
@@ -458,6 +469,33 @@ void SceneView::uploadMesh(const Mesh& mesh) {
             << " vertices, " << mesh.indices.size() << " indices" << std::endl;
 }
 
+// ---- Hot-reload ----
+
+void SceneView::reloadPipeline(const std::string& vertSpvPath, const std::string& fragSpvPath) {
+  if (!initialized) return;
+  vkDeviceWaitIdle(device);
+
+  if (pipeline) { vkDestroyPipeline(device, pipeline, nullptr); pipeline = VK_NULL_HANDLE; }
+  if (pipelineLayout) { vkDestroyPipelineLayout(device, pipelineLayout, nullptr); pipelineLayout = VK_NULL_HANDLE; }
+
+  createPipeline(vertSpvPath, fragSpvPath);
+  std::cerr << "[SceneView] Pipeline reloaded" << std::endl;
+}
+
+void SceneView::setMesh(int primitiveType) {
+  if (!initialized) return;
+  vkDeviceWaitIdle(device);
+
+  Mesh mesh;
+  switch (primitiveType) {
+    case 0: mesh = Mesh::createQuad(); break;
+    case 1: mesh = Mesh::createCube(); break;
+    case 2: mesh = Mesh::createSphere(); break;
+    default: mesh = Mesh::createCube(); break;
+  }
+  uploadMesh(mesh);
+}
+
 // ---- Rendering ----
 
 void SceneView::recordCommands(VkCommandBuffer cmdBuffer) {
@@ -478,6 +516,13 @@ void SceneView::recordCommands(VkCommandBuffer cmdBuffer) {
 
   vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
+  // Push MVP matrix
+  updateCamera();
+  glm::mat4 model = glm::mat4(1.0f);
+  glm::mat4 mvp = projMatrix * viewMatrix * model;
+  vkCmdPushConstants(cmdBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT,
+                     0, sizeof(glm::mat4), &mvp);
+
   VkBuffer buffers[] = { vertexBuffer };
   VkDeviceSize offsets[] = { 0 };
   vkCmdBindVertexBuffers(cmdBuffer, 0, 1, buffers, offsets);
@@ -488,12 +533,95 @@ void SceneView::recordCommands(VkCommandBuffer cmdBuffer) {
   vkCmdEndRenderPass(cmdBuffer);
 }
 
+void SceneView::updateCamera() {
+  float yawRad = glm::radians(orbitYaw);
+  float pitchRad = glm::radians(orbitPitch);
+
+  glm::vec3 eye;
+  eye.x = orbitDistance * cos(pitchRad) * sin(yawRad);
+  eye.y = orbitDistance * sin(pitchRad);
+  eye.z = orbitDistance * cos(pitchRad) * cos(yawRad);
+  eye += panOffset;
+
+  glm::vec3 target = panOffset;
+  glm::vec3 up(0.0f, 1.0f, 0.0f);
+
+  viewMatrix = glm::lookAt(eye, target, up);
+  float aspect = static_cast<float>(width) / static_cast<float>(height);
+  projMatrix = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 100.0f);
+  // Vulkan clip space: flip Y
+  projMatrix[1][1] *= -1.0f;
+}
+
+void SceneView::handleCameraInput() {
+  ImGuiIO& io = ImGui::GetIO();
+
+  if (!ImGui::IsItemHovered()) return;
+
+  // Left drag: orbit
+  if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+    ImVec2 delta = io.MouseDelta;
+    orbitYaw -= delta.x * 0.5f;
+    orbitPitch += delta.y * 0.5f;
+    orbitPitch = glm::clamp(orbitPitch, -89.0f, 89.0f);
+  }
+
+  // Middle drag: pan
+  if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+    ImVec2 delta = io.MouseDelta;
+    float panSpeed = orbitDistance * 0.003f;
+    float yawRad = glm::radians(orbitYaw);
+    glm::vec3 right(cos(yawRad), 0.0f, -sin(yawRad));
+    glm::vec3 up(0.0f, 1.0f, 0.0f);
+    panOffset -= right * delta.x * panSpeed;
+    panOffset += up * delta.y * panSpeed;
+  }
+
+  // Scroll: zoom
+  if (io.MouseWheel != 0.0f) {
+    orbitDistance -= io.MouseWheel * orbitDistance * 0.1f;
+    orbitDistance = glm::clamp(orbitDistance, 0.5f, 50.0f);
+  }
+}
+
 void SceneView::renderImGui() {
   if (!initialized || !imguiTextureId) return;
 
   ImVec2 avail = ImGui::GetContentRegionAvail();
-  if (avail.x > 0 && avail.y > 0) {
-    ImGui::Image(imguiTextureId, avail);
+  if (avail.x <= 0 || avail.y <= 0) return;
+
+  ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+
+  ImGui::Image(imguiTextureId, avail);
+  handleCameraInput();
+
+  // ImGuizmo orientation gizmo (view cube) in top-right corner
+  ImGuizmo::SetDrawlist();
+  ImGuizmo::SetRect(cursorPos.x, cursorPos.y, avail.x, avail.y);
+
+  glm::mat4 identity = glm::mat4(1.0f);
+  float viewManipSize = 128.0f;
+  glm::mat4 viewCopy = viewMatrix;
+  ImGuizmo::ViewManipulate(
+      &viewCopy[0][0],
+      orbitDistance,
+      ImVec2(cursorPos.x + avail.x - viewManipSize, cursorPos.y),
+      ImVec2(viewManipSize, viewManipSize),
+      0x10101010
+  );
+
+  // If the user clicked the view cube, extract new orbit angles from the manipulated view matrix
+  if (viewCopy != viewMatrix) {
+    // Extract eye position from inverse view matrix
+    glm::mat4 invView = glm::inverse(viewCopy);
+    glm::vec3 eye = glm::vec3(invView[3]);
+    glm::vec3 dir = eye - panOffset;
+    orbitDistance = glm::length(dir);
+    if (orbitDistance > 0.001f) {
+      dir /= orbitDistance;
+      orbitPitch = glm::degrees(asin(glm::clamp(dir.y, -1.0f, 1.0f)));
+      orbitYaw = glm::degrees(atan2(dir.x, dir.z));
+    }
   }
 }
 

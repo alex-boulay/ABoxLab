@@ -52,7 +52,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
   GIT_TAG master
 )
-FetchContent_MakeAvailable(imguizmo)
+FetchContent_Populate(imguizmo)
 FetchContent_GetProperties(imguizmo SOURCE_DIR imguizmo_SOURCE_DIR)
 
 find_package(glm REQUIRED)
@@ -64,12 +64,12 @@ add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
-  "${imguizmo_SOURCE_DIR}/ImGuizmo.cpp"
+  "${imguizmo_SOURCE_DIR}/src/ImGuizmo.cpp"
 )
 target_include_directories(imgui_lib PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
-  "${imguizmo_SOURCE_DIR}"
+  "${imguizmo_SOURCE_DIR}/src"
 )
 target_link_libraries(imgui_lib PUBLIC
   Vulkan::Vulkan
@@ -90,8 +90,8 @@ add_library(ui
   src/ui/CodeEditor.hpp
   src/ui/ShaderCompiler.cpp
   src/ui/ShaderCompiler.hpp
-  src/ui/ShaderGraph.cpp
-  src/ui/ShaderGraph.hpp
+  src/ui/NodeGraph.cpp
+  src/ui/NodeGraph.hpp
   "${ImGuiColorTextEdit_SOURCE_DIR}/TextEditor.cpp"
   "${imnodes_SOURCE_DIR}/imnodes.cpp"
 )
@@ -104,7 +104,7 @@ add_library(renderer
   src/renderer/SceneView.cpp
   src/renderer/SceneView.hpp
 )
-target_include_directories(renderer PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR})
+target_include_directories(renderer PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} "${imguizmo_SOURCE_DIR}/src")
 target_link_libraries(renderer PUBLIC imgui_lib Vulkan::Vulkan scene glm::glm)
 target_compile_definitions(renderer PRIVATE RESOURCES_DIR="${CMAKE_SOURCE_DIR}/resources")
 
