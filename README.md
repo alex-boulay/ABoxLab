@@ -68,7 +68,9 @@ A shader testing and 3D development tool built with Vulkan and ImGui — inspire
 - **SceneView** — offscreen Vulkan renderer with orbit camera, push constants, ImGuizmo
 - **Scene module** — Mesh primitives (Quad, Cube, Sphere), Scene/SceneObject data structures
 - **Graph-to-viewport binding** — connecting nodes to the Output node auto-applies to the 3D view
-- Hot-reload of pipeline (shader swap) and mesh from the node graph
+- Hot-reload of pipeline (shader swap) and mesh from the node graph, including on recompile
+- Node graph link and node deletion (Ctrl+Click or right-click context menu)
+- Shader recompile preserves existing node graph connections
 - Tab-based UI switching between Code Editor, Node Graph, and Viewport
 
 ### In Progress

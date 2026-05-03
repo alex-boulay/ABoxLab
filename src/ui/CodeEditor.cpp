@@ -117,10 +117,11 @@ void CodeEditor::compileShader() {
   lastResultWasLint = false;
   showCompilationResults = true;
 
-  // If compilation succeeded, add to node graph
+  // If compilation succeeded, add/update in node graph and bump generation for hot-reload
   if (lastCompilationResult.success) {
     std::string shaderName = fs::path(currentFilePath).filename().string();
     nodeGraph.addShaderNode(shaderName, currentFilePath);
+    nodeGraph.bumpGeneration();
   }
 }
 
