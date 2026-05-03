@@ -1,6 +1,6 @@
 # ABoxLab
 
-A shader testing and 3D development tool built with Vulkan and ImGui.
+A shader testing and 3D development tool built with Vulkan and ImGui — inspired by RenderMonkey.
 
 ## Project Goals
 
@@ -24,35 +24,38 @@ A shader testing and 3D development tool built with Vulkan and ImGui.
 3. **Main Window - Multi-purpose Viewer**
    - Tabbed interface supporting multiple file types:
      - Code Editor - Edit shaders and scripts
-     - Image Viewer - Preview textures and images
-     - 3D Object Viewer - View and manipulate 3D models
-     - Render View - Real-time shader preview
+     - Node Graph - Wire up meshes, shaders, and textures
+     - Viewport - Real-time 3D render preview
 
-4. **Render View**
-   - Programmable scene composition
-   - Add/remove objects dynamically
-   - Assign shaders to objects
-   - Adjust materials and properties
-   - Real-time preview of shader effects
-   - Switch between edit mode and render view
+4. **Node Graph**
+   - Visual node editor for assembling render configurations
+   - Node types: Mesh, Shader, Texture, Float, Vec3, Color, Material Output
+   - Connect shader stages + mesh + textures to a Material Output node
+   - Bindings auto-apply to the 3D viewport when connected
 
-5. **Object Management**
+5. **Viewport (SceneView)**
+   - Offscreen Vulkan render target displayed in ImGui
+   - Orbit camera (left-drag rotate, middle-drag pan, scroll zoom)
+   - ImGuizmo orientation gizmo
+   - MVP push constants for vertex shaders
+   - Hot-reload: pipeline and mesh swap at runtime from node graph
+
+6. **Object Management** (planned)
+   - Full scene composition view (separate from node graph)
    - Conditional rendering (show/hide objects)
    - Transform objects (translate, rotate, scale)
-   - Material assignment
-   - Shader binding
+   - Material assignment and shader binding
 
-6. **Shader Compilation System**
-   - SPIR-V compiler integration
-   - Slang shader compiler support
-   - GLSL compilation
-   - HLSL compilation
-   - Real-time shader compilation and hot-reload
-   - Error reporting and validation
+7. **Shader Compilation System**
+   - SPIR-V compiler integration via Slang
+   - GLSL and HLSL support
+   - Real-time linting with debounce while typing
+   - Error reporting with line/column markers
+   - Automatic SPIR-V introspection (inputs/outputs/descriptors)
 
 ## Current Status
 
-### ✅ Implemented
+### Implemented
 - Vulkan rendering with manual frame synchronization
 - ImGui master branch with custom rendering integration
 - Project management with recent projects tracking
@@ -60,17 +63,24 @@ A shader testing and 3D development tool built with Vulkan and ImGui.
 - Code editor with syntax highlighting (GLSL/HLSL)
 - Real-time shader linting with error markers
 - Shader compilation to SPIR-V using Slang compiler
-- Shader introspection to extract inputs/outputs via spirv_reflect
-- Shader graph component (foundation for node editor)
-- Tab-based UI switching between editor and graph views
+- Shader introspection via SPIR-V Reflect
+- **Node Graph** — visual node editor (imnodes) with typed pins and multiple node types
+- **SceneView** — offscreen Vulkan renderer with orbit camera, push constants, ImGuizmo
+- **Scene module** — Mesh primitives (Quad, Cube, Sphere), Scene/SceneObject data structures
+- **Graph-to-viewport binding** — connecting nodes to the Output node auto-applies to the 3D view
+- Hot-reload of pipeline (shader swap) and mesh from the node graph
+- Tab-based UI switching between Code Editor, Node Graph, and Viewport
 
-### 🔄 In Progress
-- Visual node editor integration (imnodes) — allows linking shader nodes together
+### In Progress
+- Texture node loading and binding
+- Full scene composition view (multi-object)
 
-### 📋 Planned
-- 3D render viewport for real-time shader preview (like ShaderToy)
-- Connect shader graph to 3D viewport for live visualization
-- Object management and scene composition
+### Planned
+- Image/texture loading and GPU upload
+- Multiple render passes / multi-object scenes
+- Transform gizmos (translate/rotate/scale) on scene objects
+- Material properties panel
+- Export/import of node graph configurations
 
 ## Architecture
 
@@ -81,21 +91,21 @@ ABoxLab follows the modular architecture pattern used by large open-source proje
 - **Separation of Concerns**: Each subsystem is self-contained in its own module
 - **User Workspace Independence**: User projects live anywhere on the filesystem; the app only stores references
 - **Manager Pattern**: Focused manager classes coordinate specific domains
-- **Event-Driven**: Loose coupling between components via events
 
 ### Module Structure
 
 ```
 ABoxLab/
 ├── src/
-│   ├── ui/              # UI components (MenuBar, FileTree, CodeEditor, Viewport)
-│   ├── renderer/        # Core Vulkan rendering abstraction
-│   ├── scene/           # Scene graph and object management
-│   ├── compiler/        # Runtime shader compilation (SPIR-V, Slang, GLSL, HLSL)
-│   ├── project/         # Project management and file tracking
-│   └── main.cpp
-├── resources/           # Built-in app resources (default shaders, icons)
-└── ABox/                # Custom Vulkan library (submodule)
+│   ├── ui/              # UI components (MenuBar, FileTree, CodeEditor, NodeGraph)
+│   ├── renderer/        # SceneView — offscreen Vulkan rendering + orbit camera
+│   ├── scene/           # Mesh primitives, Scene/SceneObject data structures
+│   └── project/         # Project management and file tracking
+├── resources/
+│   └── shaders/         # Default vertex/fragment shaders
+├── ABox/                # Custom Vulkan library (submodule)
+├── ABoxLabApp.cpp       # Application orchestration
+└── main.cpp
 ```
 
 ### User Data Management
@@ -109,14 +119,14 @@ User projects are **not** stored within the application directory. Instead:
   - macOS: `~/Library/Application Support/aboxlab/`
 - **Recent Projects**: Tracked via JSON file storing file paths, not copying files
 
-This mirrors how Blender, GIMP, Qt Creator, and other professional tools manage user workspaces.
-
 ### Core Technologies
 
 - **ABox**: Custom Vulkan rendering library for resource management
 - **ImGui**: UI framework (master branch)
 - **ImGuiColorTextEdit**: Syntax-highlighted code editor
-- **imnodes**: Visual node editor UI (in progress)
+- **imnodes**: Visual node editor
+- **ImGuizmo**: 3D orientation gizmo (ViewManipulate)
+- **GLM**: Math library (matrices, vectors, transforms)
 - **GLFW**: Window and input handling
 - **Vulkan**: Graphics API
 - **Slang**: High-level shader compiler
@@ -135,6 +145,7 @@ make install    # Install to system (requires sudo)
 
 - Vulkan SDK
 - GLFW3
+- GLM
 - CMake >= 3.25
 - C++20 compatible compiler
-- Slang compiler (for shader compilation)
+- SPIR-V Reflect
