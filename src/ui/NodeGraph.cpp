@@ -209,14 +209,29 @@ void NodeGraph::renderContextMenu() {
       ImGui::EndMenu();
     }
 
+    // Delete selected links
+    int numSelectedLinks = ImNodes::NumSelectedLinks();
+    if (numSelectedLinks > 0 && ImGui::MenuItem("Delete Selected Links")) {
+      std::vector<int> selectedLinkIds(numSelectedLinks);
+      ImNodes::GetSelectedLinks(selectedLinkIds.data());
+      for (int linkId : selectedLinkIds) {
+        connections.erase(
+            std::remove_if(connections.begin(), connections.end(),
+                           [linkId](const Connection& c) { return c.id == linkId; }),
+            connections.end());
+      }
+      ImNodes::ClearLinkSelection();
+    }
+
     // Delete selected nodes
     int numSelected = ImNodes::NumSelectedNodes();
-    if (numSelected > 0 && ImGui::MenuItem("Delete Selected")) {
+    if (numSelected > 0 && ImGui::MenuItem("Delete Selected Nodes")) {
       std::vector<int> selectedIds(numSelected);
       ImNodes::GetSelectedNodes(selectedIds.data());
       for (int id : selectedIds) {
         removeNode(id);
       }
+      ImNodes::ClearNodeSelection();
     }
 
     ImGui::EndPopup();
@@ -226,11 +241,16 @@ void NodeGraph::renderContextMenu() {
 // --- Node creation ---
 
 void NodeGraph::addShaderNode(const std::string& name, const std::string& filePath) {
-  // Remove old version if recompiling same file
-  for (auto it = nodes.begin(); it != nodes.end(); ++it) {
-    if (it->filePath == filePath) {
-      nodes.erase(it);
-      break;
+  // If recompiling the same file, update in-place to preserve connections
+  for (auto& existing : nodes) {
+    if (existing.filePath == filePath && existing.type == NodeType::Shader) {
+      existing.name = name;
+      // Re-extract shader interface (inputs may have changed)
+      existing.inputs.clear();
+      existing.outputs.clear();
+      existing.outputs.push_back({"Stage", PinType::Shader});
+      extractShaderInterface(filePath + ".spv", existing);
+      return;
     }
   }
 
@@ -460,6 +480,7 @@ GraphBindings NodeGraph::evaluate() const {
     }
   }
 
+  result.generation = generation;
   result.valid = (result.meshPrimitive >= 0 &&
                   !result.vertShaderSpv.empty() &&
                   !result.fragShaderSpv.empty());

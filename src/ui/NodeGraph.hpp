@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <spirv_reflect.h>
@@ -62,9 +63,11 @@ struct GraphBindings {
   std::string vertShaderSpv;      // empty = not bound
   std::string fragShaderSpv;      // empty = not bound
   std::string texturePath;        // empty = not bound
+  uint64_t generation = 0;        // incremented on recompile to force reload
 
   bool operator==(const GraphBindings& o) const {
-    return meshPrimitive == o.meshPrimitive &&
+    return generation == o.generation &&
+           meshPrimitive == o.meshPrimitive &&
            vertShaderSpv == o.vertShaderSpv &&
            fragShaderSpv == o.fragShaderSpv &&
            texturePath == o.texturePath;
@@ -90,6 +93,7 @@ public:
   void addVec3Node(float x = 0, float y = 0, float z = 0);
   void addColorNode(float r = 1, float g = 1, float b = 1);
   void removeNode(int nodeId);
+  void bumpGeneration() { ++generation; }
 
   const std::vector<GraphNode>& getNodes() const { return nodes; }
   const std::vector<Connection>& getConnections() const { return connections; }
@@ -99,6 +103,7 @@ private:
   std::vector<Connection> connections;
   int nextNodeId = 0;
   int nextLinkId = 0;
+  uint64_t generation = 0;
 
   ImNodesContext* imnodesCtx = nullptr;
 
