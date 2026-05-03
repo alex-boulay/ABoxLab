@@ -138,6 +138,9 @@ void ABoxLabApp::renderFrame() {
   };
   vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
+  // Offscreen viewport render pass (before main pass so texture is ready for ImGui)
+  sceneView.recordCommands(cmdBuffer);
+
   // Begin render pass
   VkClearValue clearColor = {.color = {.float32 = {0.1f, 0.1f, 0.1f, 1.0f}}};
 
@@ -289,6 +292,27 @@ ABoxLabApp::ABoxLabApp() {
   initImGui();
   LOG_INFO("App") << "\n -- ImGui Initialized --";
 
+  // Compile default shaders for the viewport
+  ShaderCompiler defaultCompiler;
+  auto vertResult = defaultCompiler.compile(std::string(RESOURCES_DIR) + "/shaders/default.vert");
+  auto fragResult = defaultCompiler.compile(std::string(RESOURCES_DIR) + "/shaders/default.frag");
+
+  if (!vertResult.success || !fragResult.success) {
+    LOG_ERROR("App") << "Failed to compile default shaders!";
+  }
+
+  // Initialize scene view (offscreen render target)
+  sceneView.init(
+      dbe->getDevice().get(),
+      dbe->getPhysicalDevice(),
+      dbe->graphicsQueue,
+      dbe->getFamilyQueueIndices().at(QueueRole::Graphics),
+      vertResult.spirvOutput,
+      fragResult.spirvOutput
+  );
+  codeEditor.setViewport(&sceneView);
+  LOG_INFO("App") << "\n -- Scene View Initialized --";
+
   // Set up menu callbacks
   menuBar.setProjectManager(&projectManager);
   menuBar.setOnCreateProjectCallback([this](const std::string& name, const std::string& path) {
@@ -348,6 +372,9 @@ ABoxLabApp::ABoxLabApp() {
 }
 
 ABoxLabApp::~ABoxLabApp() {
+  // Clean up viewport before ImGui (uses ImGui_ImplVulkan_RemoveTexture)
+  sceneView.cleanup();
+
   // Clean up ImGui first, before ABox resources are destroyed
   cleanupImGui();
 

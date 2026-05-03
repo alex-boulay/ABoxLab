@@ -15,6 +15,7 @@
 #include "src/ui/CodeEditor.hpp"
 #include "src/project/ProjectManager.hpp"
 #include "src/project/FileTemplates.hpp"
+#include "src/renderer/SceneView.hpp"
 
 // #include "ShaderHandler.hpp"
 /**
@@ -38,6 +39,7 @@ class ABoxLabApp {
   MenuBar menuBar;
   FileTree fileTree;
   CodeEditor codeEditor;
+  SceneView sceneView;
   ProjectManager projectManager;
 
   bool layoutRefreshed = false;

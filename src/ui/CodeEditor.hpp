@@ -9,6 +9,8 @@
 #include "ShaderGraph.hpp"
 #include "TextEditor.h"
 
+class SceneView;
+
 class CodeEditor {
 public:
   CodeEditor();
@@ -19,6 +21,8 @@ public:
   void saveFile();
   void closeFile();
   void compileShader();
+
+  void setViewport(SceneView* vp) { viewport = vp; }
 
   bool hasOpenFile() const { return !currentFilePath.empty(); }
   const std::string& getCurrentFilePath() const { return currentFilePath; }
@@ -31,13 +35,14 @@ private:
   TextEditor editor;
   ShaderCompiler compiler;
   ShaderGraph shaderGraph;
+  SceneView* viewport = nullptr;
   CompilationResult lastCompilationResult;
   bool showCompilationResults = false;
   bool lastResultWasLint = false;
   bool editorHasFocus = false;
 
   // Tab system
-  enum ViewMode { CODE_EDITOR, SHADER_GRAPH };
+  enum ViewMode { CODE_EDITOR, SHADER_GRAPH, VIEWPORT };
   ViewMode currentView = CODE_EDITOR;
 
   // Real-time linting with debounce
@@ -55,4 +60,5 @@ private:
   void updateLinting();
   void renderCodeEditor();
   void renderShaderGraphView();
+  void renderViewport();
 };

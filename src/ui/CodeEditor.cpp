@@ -1,4 +1,5 @@
 #include "CodeEditor.hpp"
+#include "src/renderer/SceneView.hpp"
 #include "imgui.h"
 #include <fstream>
 #include <sstream>
@@ -258,6 +259,10 @@ void CodeEditor::render(float offsetX) {
         currentView = SHADER_GRAPH;
         ImGui::EndTabItem();
       }
+      if (ImGui::BeginTabItem("Viewport")) {
+        currentView = VIEWPORT;
+        ImGui::EndTabItem();
+      }
       ImGui::EndTabBar();
     }
 
@@ -265,8 +270,10 @@ void CodeEditor::render(float offsetX) {
 
     if (currentView == CODE_EDITOR) {
       renderCodeEditor();
-    } else {
+    } else if (currentView == SHADER_GRAPH) {
       renderShaderGraphView();
+    } else {
+      renderViewport();
     }
   }
 
@@ -348,4 +355,12 @@ void CodeEditor::renderCodeEditor() {
 void CodeEditor::renderShaderGraphView() {
   ImVec2 contentRegion = ImGui::GetContentRegionAvail();
   shaderGraph.render(0, 0, contentRegion.x, contentRegion.y);
+}
+
+void CodeEditor::renderViewport() {
+  if (viewport) {
+    viewport->renderImGui();
+  } else {
+    ImGui::TextDisabled("Viewport not initialized");
+  }
 }

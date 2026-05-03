@@ -47,6 +47,16 @@ FetchContent_Declare(
 FetchContent_Populate(imnodes)
 FetchContent_GetProperties(imnodes SOURCE_DIR imnodes_SOURCE_DIR)
 
+FetchContent_Declare(
+  imguizmo
+  GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(imguizmo)
+FetchContent_GetProperties(imguizmo SOURCE_DIR imguizmo_SOURCE_DIR)
+
+find_package(glm REQUIRED)
+
 add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui.cpp
   ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -54,10 +64,12 @@ add_library(imgui_lib
   ${imgui_SOURCE_DIR}/imgui_widgets.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
   ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+  "${imguizmo_SOURCE_DIR}/ImGuizmo.cpp"
 )
 target_include_directories(imgui_lib PUBLIC
   ${imgui_SOURCE_DIR}
   ${imgui_SOURCE_DIR}/backends
+  "${imguizmo_SOURCE_DIR}"
 )
 target_link_libraries(imgui_lib PUBLIC
   Vulkan::Vulkan
@@ -87,6 +99,24 @@ target_include_directories(ui PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR} ${s
 target_link_libraries(ui PUBLIC imgui_lib glfw slang SPIRV-Reflect::spirv-reflect-static)
 target_compile_definitions(ui PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
 
+# Renderer Module
+add_library(renderer
+  src/renderer/SceneView.cpp
+  src/renderer/SceneView.hpp
+)
+target_include_directories(renderer PUBLIC ${CMAKE_SOURCE_DIR} ${imgui_SOURCE_DIR})
+target_link_libraries(renderer PUBLIC imgui_lib Vulkan::Vulkan scene glm::glm)
+target_compile_definitions(renderer PRIVATE RESOURCES_DIR="${CMAKE_SOURCE_DIR}/resources")
+
+# Scene Module
+add_library(scene
+  src/scene/Mesh.cpp
+  src/scene/Mesh.hpp
+  src/scene/Scene.cpp
+  src/scene/Scene.hpp
+)
+target_include_directories(scene PUBLIC ${CMAKE_SOURCE_DIR})
+
 # Project Module
 add_library(project
   src/project/ProjectManager.cpp
@@ -102,7 +132,7 @@ add_executable(ABoxLab
   ABoxLabApp.hpp
 )
 
-target_compile_definitions(ABoxLab PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H)
+target_compile_definitions(ABoxLab PRIVATE SPIRV_REFLECT_USE_SYSTEM_SPIRV_H RESOURCES_DIR="${CMAKE_SOURCE_DIR}/resources")
 
 # Add sanitizer support for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -118,6 +148,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
   target_compile_options(project PRIVATE -fsanitize=address -fno-omit-frame-pointer)
   target_link_options(project PRIVATE -fsanitize=address)
+
+  target_compile_options(renderer PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(renderer PRIVATE -fsanitize=address)
+
+  target_compile_options(scene PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(scene PRIVATE -fsanitize=address)
 endif()
 
 target_link_libraries(
@@ -126,6 +162,8 @@ target_link_libraries(
   ABoxLib
   imgui_lib
   ui
+  renderer
+  scene
   project
 )
 
