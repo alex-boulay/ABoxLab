@@ -60,8 +60,12 @@ CompilationResult ShaderCompiler::parseSlangDiagnostics(const std::string& diagn
     int colNum = 0;
     size_t commaPos = coords.find(',');
     if (commaPos != std::string::npos) {
-      lineNum = std::stoi(coords.substr(0, commaPos));
-      colNum = std::stoi(coords.substr(commaPos + 1));
+      try {
+        lineNum = std::stoi(coords.substr(0, commaPos));
+        colNum = std::stoi(coords.substr(commaPos + 1));
+      } catch (...) {
+        continue;
+      }
     }
 
     size_t colonPos = line.find(':', closeParenPos);

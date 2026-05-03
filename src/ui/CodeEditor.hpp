@@ -6,7 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include "ShaderCompiler.hpp"
-#include "ShaderGraph.hpp"
+#include "NodeGraph.hpp"
 #include "TextEditor.h"
 
 class SceneView;
@@ -34,7 +34,7 @@ private:
 
   TextEditor editor;
   ShaderCompiler compiler;
-  ShaderGraph shaderGraph;
+  NodeGraph nodeGraph;
   SceneView* viewport = nullptr;
   CompilationResult lastCompilationResult;
   bool showCompilationResults = false;
@@ -54,11 +54,14 @@ private:
   std::atomic<bool> lintResultReady{false};
   static constexpr int LINT_DEBOUNCE_MS = 600;
 
+  GraphBindings lastAppliedBindings;
+
+  void applyGraphBindings();
   void loadFileContent(const std::string& filePath);
   void renderCompilationResults();
   bool isShaderFile(const std::string& filePath) const;
   void updateLinting();
   void renderCodeEditor();
-  void renderShaderGraphView();
+  void renderNodeGraphView();
   void renderViewport();
 };

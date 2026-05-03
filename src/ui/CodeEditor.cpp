@@ -117,10 +117,10 @@ void CodeEditor::compileShader() {
   lastResultWasLint = false;
   showCompilationResults = true;
 
-  // If compilation succeeded, add to shader graph
+  // If compilation succeeded, add to node graph
   if (lastCompilationResult.success) {
     std::string shaderName = fs::path(currentFilePath).filename().string();
-    shaderGraph.addShaderNode(shaderName, currentFilePath);
+    nodeGraph.addShaderNode(shaderName, currentFilePath);
   }
 }
 
@@ -255,7 +255,7 @@ void CodeEditor::render(float offsetX) {
         currentView = CODE_EDITOR;
         ImGui::EndTabItem();
       }
-      if (ImGui::BeginTabItem("Shader Graph")) {
+      if (ImGui::BeginTabItem("Node Graph")) {
         currentView = SHADER_GRAPH;
         ImGui::EndTabItem();
       }
@@ -271,7 +271,7 @@ void CodeEditor::render(float offsetX) {
     if (currentView == CODE_EDITOR) {
       renderCodeEditor();
     } else if (currentView == SHADER_GRAPH) {
-      renderShaderGraphView();
+      renderNodeGraphView();
     } else {
       renderViewport();
     }
@@ -352,9 +352,29 @@ void CodeEditor::renderCodeEditor() {
   }
 }
 
-void CodeEditor::renderShaderGraphView() {
+void CodeEditor::renderNodeGraphView() {
   ImVec2 contentRegion = ImGui::GetContentRegionAvail();
-  shaderGraph.render(0, 0, contentRegion.x, contentRegion.y);
+  nodeGraph.render(0, 0, contentRegion.x, contentRegion.y);
+  applyGraphBindings();
+}
+
+void CodeEditor::applyGraphBindings() {
+  if (!viewport) return;
+
+  GraphBindings bindings = nodeGraph.evaluate();
+  if (!bindings.valid) return;
+  if (bindings == lastAppliedBindings) return;
+
+  // Apply changes
+  if (bindings.meshPrimitive != lastAppliedBindings.meshPrimitive) {
+    viewport->setMesh(bindings.meshPrimitive);
+  }
+  if (bindings.vertShaderSpv != lastAppliedBindings.vertShaderSpv ||
+      bindings.fragShaderSpv != lastAppliedBindings.fragShaderSpv) {
+    viewport->reloadPipeline(bindings.vertShaderSpv, bindings.fragShaderSpv);
+  }
+
+  lastAppliedBindings = bindings;
 }
 
 void CodeEditor::renderViewport() {
